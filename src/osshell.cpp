@@ -11,6 +11,7 @@ bool fileExecutableExists(std::string file_path);
 void splitString(std::string text, char d, std::vector<std::string>& result);
 void vectorOfStringsToArrayOfCharArrays(std::vector<std::string>& list, char ***result);
 void freeArrayOfCharArrays(char **array, size_t array_length);
+void historyHelper(std::vector<std::string>& history, std::string& new_cmd);
 
 int main (int argc, char **argv)
 {
@@ -30,7 +31,7 @@ int main (int argc, char **argv)
     // Welcome message
     printf("Welcome to OSShell! Please enter your commands ('exit' to quit).\n");
 
-    // Repeat:
+  // Repeat:
     //  Print prompt for user input: "osshell> " (no newline)
     //  Get user input for next command
     //  If command is `exit` exit loop / quit program
@@ -39,55 +40,102 @@ int main (int argc, char **argv)
     //   If yes, execute it
     //   If no, print error statement: "<command_name>: Error command not found" (do include newline)
 
+    while(true){
+
+        std::cout << "osshell> " << std::flush;
+
+        // read full line and store it in user_command
+        std::getline(std::cin, user_command);
+
+        // check if input failed. cin returns false if it failed
+        if(!std::cin){
+            break; // Input is over, exit loop 
+        }
+        // check if line is empty -- i.e., restart loop if user presses enter 
+        if(user_command.size() == 0){
+            continue; 
+        }
+        // Special command: exit loop if user command is "exit"
+        if(user_command == "exit"){
+            historyHelper(history, user_command); // add command to history and update
+            break;
+        }
+        //Special command: show history if user command is "history"
+        if(user_command == "history"){
+            for(int i = 0 ; i < history.size() ; i++){
+                std::cout << (i + 1) << ": " << history[i] << std::endl; // add 1 to i for readability 
+            }
+
+            historyHelper(history, user_command); // add command to history and update
+            continue; // jump back to top
+        }
+        // normal command
+        historyHelper(history, user_command); // add command to history and update
+    }
+
 
 
     /************************************************************************************
      *   Example code - remove in actual program                                        *
      ************************************************************************************/
     // Shows how to loop over the directories in the PATH environment variable
-    int i;
-    for (i = 0; i < os_path_list.size(); i++)
-    {
-        printf("PATH[%2d]: %s\n", i, os_path_list[i].c_str());
-    }
-    printf("------\n");
-    
-    // Shows how to split a command and prepare for the execv() function
-    std::string example_command = "ls -lh";
-    splitString(example_command, ' ', command_list);
-    vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
-    // use `command_list_exec` in the execv() function rather than looping and printing
-    i = 0;
-    while (command_list_exec[i] != NULL)
-    {
-        printf("CMD[%2d]: %s\n", i, command_list_exec[i]);
-        i++;
-    }
-    // free memory for `command_list_exec`
-    freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
-    printf("------\n");
+    if(false){
+            int i;
+            for (i = 0; i < os_path_list.size(); i++)
+            {
+                printf("PATH[%2d]: %s\n", i, os_path_list[i].c_str());
+            }
+            printf("------\n");
+            
+            // Shows how to split a command and prepare for the execv() function
+            std::string example_command = "ls -lh";
+            splitString(example_command, ' ', command_list);
+            vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
+            // use `command_list_exec` in the execv() function rather than looping and printing
+            i = 0;
+            while (command_list_exec[i] != NULL)
+            {
+                printf("CMD[%2d]: %s\n", i, command_list_exec[i]);
+                i++;
+            }
+            // free memory for `command_list_exec`
+            freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
+            printf("------\n");
 
-    // Second example command - reuse the `command_list` and `command_list_exec` variables
-    example_command = "echo \"Hello world\" I am alive!";
-    splitString(example_command, ' ', command_list);
-    vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
-    // use `command_list_exec` in the execv() function rather than looping and printing
-    i = 0;
-    while (command_list_exec[i] != NULL)
-    {
-        printf("CMD[%2d]: %s\n", i, command_list_exec[i]);
-        i++;
+            // Second example command - reuse the `command_list` and `command_list_exec` variables
+            example_command = "echo \"Hello world\" I am alive!";
+            splitString(example_command, ' ', command_list);
+            vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
+            // use `command_list_exec` in the execv() function rather than looping and printing
+            i = 0;
+            while (command_list_exec[i] != NULL)
+            {
+                printf("CMD[%2d]: %s\n", i, command_list_exec[i]);
+                i++;
+            }
+            // free memory for `command_list_exec`
+            freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
+            printf("------\n");
+            /************************************************************************************
+            *   End example code                                                               *
+            ************************************************************************************/
     }
-    // free memory for `command_list_exec`
-    freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
-    printf("------\n");
-    /************************************************************************************
-     *   End example code                                                               *
-     ************************************************************************************/
-
 
     return 0;
 }
+
+//helper function for updating history
+void historyHelper(std::vector<std::string>& history, std::string& new_cmd){
+
+    history.push_back(new_cmd); // append new command to history vector
+
+    // if history vector is too large, remove first element
+    if(history.size() > 128){
+        history.erase(history.begin());
+    }
+
+}
+
 
 /*
    file_path: path to a file
