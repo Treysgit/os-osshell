@@ -67,10 +67,36 @@ int main (int argc, char **argv)
             }
 
             historyHelper(history, user_command); // add command to history and update
-            continue; // jump back to top
+            continue; // jump back to top of while(true)
         }
         // normal command
         historyHelper(history, user_command); // add command to history and update
+
+        //tokenize with white space delimiter the current command line and put parts in vector
+        splitString(user_command, ' ', command_list);
+
+        std::string token = command_list[0];
+        std::string cmd_path;
+        bool path_found = false;
+
+        std::string try_path;
+        for(int i = 0 ; i < os_path_list.size() ; i++){
+            try_path = os_path_list[i] + "/" + token; //create path string of current directory
+
+            // use helper method to check if path exists and is executable 
+            if(fileExecutableExists(try_path)){
+                cmd_path = try_path; // assign path of token
+                path_found = true;
+                break; // exit for loop
+            }
+            
+        }
+        if(!path_found){
+            std::cout << "Error command not found" << std::endl;
+            continue; // jumps back to top of while(true)
+        }
+
+
     }
 
 
@@ -146,6 +172,22 @@ bool fileExecutableExists(std::string file_path)
     bool exists = false;
     // check if `file_path` exists
     // if so, ensure it is not a directory and that it has executable permissions
+
+    // return false if path doesn't exist
+    if(!std::filesystem::exists(file_path)){
+        return exists;
+    }
+    // return false if it is a directory (can't be executable)
+    if(std::filesystem::is_directory(file_path)){
+        return exists;
+    }
+    // use access() to check if the path is executable. Flag for executable is X_OK
+    const char* path_c_string = file_path.c_str(); // convert string back to c style string constant for access()
+    // returned 0 means executable 
+    if(access(path_c_string, X_OK) != 0){
+        return exists; // return false if not executable 
+    }
+    exists = true; // executable exists
 
     return exists;
 }
