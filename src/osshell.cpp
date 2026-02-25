@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <unistd.h>
 
+#include <sys/wait.h>
+
 bool fileExecutableExists(std::string file_path);
 void splitString(std::string text, char d, std::vector<std::string>& result);
 void vectorOfStringsToArrayOfCharArrays(std::vector<std::string>& list, char ***result);
@@ -92,9 +94,41 @@ int main (int argc, char **argv)
             
         }
         if(!path_found){
-            std::cout << "Error command not found" << std::endl;
+            std::cout << token << ": Error command not found" << std::endl;
             continue; // jumps back to top of while(true)
         }
+
+        //converts vector of string elements to an array of c style strings 
+        vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
+
+        int pid = fork(); // create child process
+        int array_size = command_list.size() + 1; // for clearing heap. Add 1 for null terminator
+
+        if(pid < 0){
+            std::cout << "Error: fork() failed" << std::endl;
+            //free up heap memory allocated for array 
+            freeArrayOfCharArrays(command_list_exec, array_size); 
+            
+        }
+        if(pid == 0){
+            // replace program being run in child process to program of path
+            // must convert cmd_path to c style string
+            execv(cmd_path.c_str(), command_list_exec);
+
+            // execv() should not return
+            std::cout << "Error: execution failed";
+            exit(1);
+    
+        }
+        else{
+            // Parent process waits for child process to finish
+            int status;
+            waitpid(pid, &status, 0);
+        }
+
+        //free up heap memory allocated for array 
+        freeArrayOfCharArrays(command_list_exec, array_size); 
+
 
 
     }
