@@ -6,6 +6,8 @@
 #include <vector>
 #include <filesystem>
 #include <unistd.h>
+#include <fstream>
+#include <iomanip>
 
 #include <sys/wait.h>
 
@@ -14,6 +16,10 @@ void splitString(std::string text, char d, std::vector<std::string>& result);
 void vectorOfStringsToArrayOfCharArrays(std::vector<std::string>& list, char ***result);
 void freeArrayOfCharArrays(char **array, size_t array_length);
 void historyHelper(std::vector<std::string>& history, std::string& new_cmd);
+void saveHistory(const std::vector<std::string>& history);
+void loadHistory(std::vector<std::string>& history);
+
+const std::string HISTORY_FILE = ".osshell_history";
 
 int main (int argc, char **argv)
 {
@@ -24,6 +30,9 @@ int main (int argc, char **argv)
 
     // Create list to store history
     std::vector<std::string> history;
+
+    // Load history from file (persistent history)
+    loadHistory(history);
 
     // Create variables for storing command user types
     std::string user_command;               // to store command user types in
@@ -60,38 +69,90 @@ int main (int argc, char **argv)
         // Special command: exit loop if user command is "exit"
         if(user_command == "exit"){
             historyHelper(history, user_command); // add command to history and update
+            std::cout << std::endl;
             break;
         }
-        //Special command: show history if user command is "history"
-        if(user_command == "history"){
-            for(int i = 0 ; i < history.size() ; i++){
-                std::cout << (i + 1) << ": " << history[i] << std::endl; // add 1 to i for readability 
+        //Special command: show history if user command starts with "history"
+        splitString(user_command, ' ', command_list);
+        if(command_list[0] == "history"){
+            if(command_list.size() == 1){
+                // no argument: print all history
+                for(int i = 0 ; i < history.size() ; i++){
+                    std::cout << std::setw(3) << (i + 1) << ": " << history[i] << std::endl; // add 1 to i for readability 
+                }
+                historyHelper(history, user_command); // add command to history and update
             }
-
-            historyHelper(history, user_command); // add command to history and update
+            else if(command_list.size() == 2){
+                std::string arg = command_list[1];
+                if(arg == "clear"){
+                    // clear history, do NOT log this command
+                    history.clear();
+                    saveHistory(history);
+                }
+                else{
+                    // try to parse as integer
+                    bool valid_int = true;
+                    int n = 0;
+                    try {
+                        size_t pos;
+                        n = std::stoi(arg, &pos);
+                        if(pos != arg.size()){
+                            valid_int = false; // not entirely an integer
+                        }
+                    } catch(...){
+                        valid_int = false;
+                    }
+                    if(valid_int && n > 0){
+                        // print last n commands
+                        int start = (int)history.size() - n;
+                        if(start < 0) start = 0;
+                        for(int i = start ; i < history.size() ; i++){
+                            std::cout << std::setw(3) << (i + 1) << ": " << history[i] << std::endl;
+                        }
+                        historyHelper(history, user_command);
+                    }
+                    else{
+                        std::cout << "Error: history expects an integer > 0 (or 'clear')" << std::endl;
+                        historyHelper(history, user_command);
+                    }
+                }
+            }
+            else{
+                std::cout << "Error: history expects an integer > 0 (or 'clear')" << std::endl;
+                historyHelper(history, user_command);
+            }
             continue; // jump back to top of while(true)
         }
         // normal command
         historyHelper(history, user_command); // add command to history and update
 
         //tokenize with white space delimiter the current command line and put parts in vector
-        splitString(user_command, ' ', command_list);
+        // (already split above for history check)
 
         std::string token = command_list[0];
         std::string cmd_path;
         bool path_found = false;
 
-        std::string try_path;
-        for(int i = 0 ; i < os_path_list.size() ; i++){
-            try_path = os_path_list[i] + "/" + token; //create path string of current directory
-
-            // use helper method to check if path exists and is executable 
-            if(fileExecutableExists(try_path)){
-                cmd_path = try_path; // assign path of token
+        // Advanced Task 1: If command starts with . or /, treat as direct path
+        if(token[0] == '.' || token[0] == '/'){
+            if(fileExecutableExists(token)){
+                cmd_path = token;
                 path_found = true;
-                break; // exit for loop
             }
-            
+        }
+        else{
+            std::string try_path;
+            for(int i = 0 ; i < os_path_list.size() ; i++){
+                try_path = os_path_list[i] + "/" + token; //create path string of current directory
+
+                // use helper method to check if path exists and is executable 
+                if(fileExecutableExists(try_path)){
+                    cmd_path = try_path; // assign path of token
+                    path_found = true;
+                    break; // exit for loop
+                }
+                
+            }
         }
         if(!path_found){
             std::cout << token << ": Error command not found" << std::endl;
@@ -194,6 +255,31 @@ void historyHelper(std::vector<std::string>& history, std::string& new_cmd){
         history.erase(history.begin());
     }
 
+    // save history to file for persistence
+    saveHistory(history);
+}
+
+// Save history vector to file
+void saveHistory(const std::vector<std::string>& history){
+    std::ofstream outfile(HISTORY_FILE);
+    if(outfile.is_open()){
+        for(const auto& cmd : history){
+            outfile << cmd << std::endl;
+        }
+        outfile.close();
+    }
+}
+
+// Load history vector from file
+void loadHistory(std::vector<std::string>& history){
+    std::ifstream infile(HISTORY_FILE);
+    if(infile.is_open()){
+        std::string line;
+        while(std::getline(infile, line)){
+            history.push_back(line);
+        }
+        infile.close();
+    }
 }
 
 
